@@ -1,16 +1,25 @@
 {
   "name": "bs-proxy",
   "version": "1.0.0",
-  "description": "",
+  "description": "Brawl Stars Proxy",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Xzlash",
+  "license": "GPL-3.0+",
   "dependencies": {
     "colors": "^1.1.2",
     "jsbytes": "^1.0.0",
     "simple-rc4": "0.0.1-b"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Xzlash/node-bs-proxy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Xzlash/node-bs-proxy/issues"
+  },
+  "homepage": "https://github.com/Xzlash/node-bs-proxy#readme"
 }

@@ -1,6 +1,8 @@
 const net = require('net');
 const colors = require('colors');
 const simplerc4 = require('simple-rc4');
+const util = require('util');
+
 require('jsbytes');
 
 const config = {
@@ -27,34 +29,35 @@ class crypto {
 	}
 }
 
+
+
 server.on("connection", newClient);
+
+function logpacket (packet, origin = "packet") {
+	console.log(`[${origin.toUpperCase()}] ${packet.id} => ${packet.decrypted.toString('hex')}\n\n`.green);
+	console.log(`${packet.decrypted.toString('utf8').replace(/[^\x20-\x7E]+/g, '😁')}`.yellow);
+		return void 0;
+}
+
+function handle (packet) {
+	logpacket(packet, packet.origin);
+}
 
 function newClient (conn) {
 	console.log(`[INFO] => New Client ${conn.remoteAddress}:${conn.remotePort}`.green.underline);
 
-	let dcrypto = new simplerc4(config.key + config.nonce);
-	dcrypto.update(config.key + config.nonce);
+	let socket = net.createConnection(config.port, config.remote);
 
-	let ecrypto = new simplerc4(config.key + config.nonce);
-	ecrypto.update(config.key + config.nonce);
-	
 	let serverCrypto = new crypto ();
 	let socketCrypto = new crypto ();
-
-	let socket = net.createConnection(config.port, config.remote);
+	
 	conn.on("data", data=>{
+		listener ("client", conn, socket, serverCrypto, data);
+	});
 
-		let header = data.slice(0,7);
-		let body = data.slice(7);
-
-		let ddata = serverCrypto.decrypt(body);
-
-		let id = int.from_bytes(header.slice(0,2), "big");
-
-		console.log(`[CLIENT] ${id} => ${ddata.toString('hex').slice(0, 100)}${ddata.length > 100 ? "..." : ""}`.green);
-		console.log(`${ddata.toString('utf8').slice(0, 100)}${ddata.length > 100 ? "..." : ""}`.yellow);
-
-		socket.write(data);
+	
+	socket.on("data", data=>{
+		listener ("server", socket, conn, socketCrypto, data);
 	});
 
 	conn.on("close", ()=>{
@@ -66,19 +69,55 @@ function newClient (conn) {
 		console.log(`[INFO] => Closed Socket for ${conn.remoteAddress}:${conn.remotePort}`.yellow.underline);
 		conn.destroy();
 	});
-	socket.on("data", data=>{
-		let header = data.slice(0,7);
-		let body = data.slice(7);
-
-		let edata = serverCrypto.decrypt(body);
-
-		let id = int.from_bytes(header.slice(0,2), "big");
-
-		console.log(`[SERVER] ${id} => ${edata.toString('hex').slice(0, 100)}${edata.length > 100 ? "..." : ""}`.green);
-		console.log(`${edata.toString('utf8').slice(0, 100)}${edata.length > 100 ? "..." : ""}`.cyan);
-		
-		conn.write(data);
-	});
 }
 
 server.listen(config.port);
+
+function listener (senderName, sender, destiny, senderCrypto, packet) {
+	destiny.write(packet);
+	if (!sender.wait){sender.wait={do:false}}; 	
+	if (sender.wait.do) {
+		sender.wait.data = Buffer.concat([sender.wait.data, packet]);
+		sender.wait.Count -= packet.length;
+		if (sender.wait.Count <= 0) {
+			let decrypted = senderCrypto.decrypt(sender.wait.data);
+
+			handle ({
+				id: sender.wait.id,
+				length: sender.wait.length,
+				decrypted,
+				origin: senderName
+			});
+			console.log(`${senderName} FINISHED WAITING with id ${sender.wait.id} and data count ${sender.wait.Count}`);
+
+			sender.wait = {do:false};
+		}
+	} else {
+		let header = packet.slice(0, 7);
+
+		let id = int.from_bytes(header.slice(0, 2), "big");
+		let length = int.from_bytes(header.slice(2, 5), "big");
+		let version = int.from_bytes(header.slice(5), "big");
+
+		if (length > (packet.length + 7)) {
+			// wait for more packets...
+			sender.wait = {
+				id,
+				length,
+				data: packet.slice(7),
+				Count: length - (packet.length - 7),
+				do: true
+			};
+			console.log(`${senderName} WAITING with id ${id}`);
+		} else {
+			let decrypted = senderCrypto.decrypt(packet.slice(7));
+
+			handle({
+				id,
+				length,
+				decrypted,
+				origin: senderName
+			});
+		}
+	}
+}

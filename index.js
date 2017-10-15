@@ -10,6 +10,16 @@ const fs = require('fs');
 
 require('jsbytes');
 
+const config = {
+	remote: "game.brawlstarsgame.com",
+	port: 9339,
+	key: "fhsd6f86f67rt8fw78fw789we78r9789wer6re",
+	nonce: "nonce",
+	dumpdir: "dump"
+};
+
+
+
 function split (buf) {
 	let id = int.from_bytes(buf.slice(0,2), "big");
 	let len = int.from_bytes(buf.slice(2,5), "big");
@@ -92,7 +102,9 @@ class peer {
 			this.destiny.destroy();
 		} catch (e) {}
 		//console.log(this.history.toString("hex").cyan.underline);
-		fs.writeFileSync(`${this.name}_dump_${Date.now()}.json`, JSON.stringify(this.digest(), null, 4));
+		this.digest().forEach(message=>{
+			fs.writeFileSync(`${config.dumpdir}/${this.name}/${Date.now()}_${message.id}.bin`, message.decrypted);
+		})
 		console.log("Closed", this.name);
 	}
 
@@ -121,13 +133,15 @@ class peer {
 			var payload = this.history.read(length);
 
 			var decrypted = this.crypto.decrypt(payload);
+			var decryptedhex = decrypted.toString('hex');
 
 			result.push({
 				id,
 				length,
 				ver,
 				payload,
-				decrypted
+				decrypted,
+				decryptedhex
 			});
 		}
 
@@ -135,12 +149,7 @@ class peer {
 	}
 }
 
-const config = {
-	remote: "game.brawlstarsgame.com",
-	port: 9339,
-	key: "fhsd6f86f67rt8fw78fw789we78r9789wer6re",
-	nonce: "nonce"
-};
+
 
 let server = net.createServer();
 

@@ -11,6 +11,7 @@
   "dependencies": {
     "colors": "^1.1.2",
     "jsbytes": "^1.0.0",
+    "jsome": "^2.3.26",
     "simple-rc4": "0.0.1-b"
   },
   "devDependencies": {},
